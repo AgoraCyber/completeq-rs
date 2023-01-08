@@ -35,22 +35,32 @@ pub(crate) struct CompleteQImpl<E: UserEvent> {
 impl<E: UserEvent> CompleteQImpl<E> {
     /// Send one completed event
     ///
-    /// If there are no surviving receivers, will return [`Pending`](super::emit::EmitResult::Pending)
+    /// If pending msgs >= max_len , will return [`Pending`](super::emit::EmitInnerResult::Pending)
     pub fn complete_one(
         &mut self,
         event_id: E::ID,
         event_arg: E::Argument,
         waker: Waker,
     ) -> EmitInnerResult<E> {
+        log::trace!("complete_one event_id({})", event_id);
         if let Some(channel) = self.channels.get_mut(&event_id) {
             if channel.pending_msgs.len() >= channel.max_len {
+                log::trace!("complete_one event_id({}) -- pending", event_id);
                 channel.senders.push(waker);
                 return EmitInnerResult::Pending(event_arg);
             }
 
+            log::trace!("complete_one event_id({}) -- ready", event_id);
             channel.pending_msgs.push(event_arg);
+
+            if let Some(key) = channel.receivers.keys().next().map(|k| *k) {
+                channel.receivers.remove(&key).unwrap().wake_by_ref();
+            }
+
             return EmitInnerResult::Completed;
         }
+
+        log::trace!("complete_one event_id({}) -- closed", event_id);
 
         EmitInnerResult::Closed
     }
@@ -65,6 +75,12 @@ impl<E: UserEvent> CompleteQImpl<E> {
         event_id: E::ID,
         waker: Waker,
     ) -> Poll<ReceiveResult<E>> {
+        log::trace!(
+            "poll_one receiver_id({}) event_id({})",
+            receiver_id,
+            event_id
+        );
+
         let channel = self
             .channels
             .get_mut(&event_id)
@@ -130,7 +146,9 @@ impl<E: UserEvent> CompleteQImpl<E> {
     /// According to parameter `receiver_id`, delete the pending poll of the corresponding receiver
     pub fn remove_pending_poll(&mut self, receiver_id: usize, event_id: E::ID) {
         if let Some(channel) = self.channels.get_mut(&event_id) {
-            channel.receivers.remove(&receiver_id);
+            if let Some(waker) = channel.receivers.remove(&receiver_id) {
+                waker.wake_by_ref();
+            }
         }
     }
 }

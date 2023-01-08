@@ -1,5 +1,12 @@
+mod inner;
+use inner::*;
+mod receiver;
+pub use receiver::*;
+mod sender;
+pub use sender::*;
+
 use std::{
-    sync::{atomic::AtomicUsize, Arc, Mutex},
+    sync::{Arc, Mutex},
     time::Duration,
 };
 
@@ -8,21 +15,12 @@ use crate::{
     user_event::{AutoIncEvent, UserEvent},
 };
 
-mod inner;
-use inner::*;
-mod receiver;
-pub use receiver::*;
-mod sender;
-pub use sender::*;
-
 /// CompleteQ structure is a central scheduler for certain types of completion events
 ///
 /// The generic parameter `E` represents a user-defined event type
 #[derive(Clone)]
 pub struct CompleteQ<E: UserEvent> {
     event: E,
-    /// receiver id generator
-    receiver_id_seq: Arc<AtomicUsize>,
 
     inner: Arc<Mutex<CompleteQImpl<E>>>,
 }
@@ -34,46 +32,28 @@ where
     pub fn new() -> Self {
         Self {
             event: E::default(),
-            receiver_id_seq: Arc::new(AtomicUsize::new(1)),
             inner: Default::default(),
         }
     }
 
     /// Create a new event receiver with provide event_id
-    pub fn wait_for(&self, event_id: E::ID, max_len: usize) -> EventReceiver<E> {
-        EventReceiver::new(
-            event_id,
-            max_len,
-            self.receiver_id_seq.clone(),
-            self.inner.clone(),
-            None,
-        )
+    pub fn wait_for(&self, event_id: E::ID) -> EventReceiver<E> {
+        EventReceiver::new(event_id, self.inner.clone())
     }
 
     /// [`wait_for`](CompleteQ::wait_for)  operation with timeout
     pub fn wait_for_timeout<T: Timer>(
         &self,
         event_id: E::ID,
-        max_len: usize,
         timeout: Duration,
     ) -> EventReceiver<E> {
-        let receiver = EventReceiver::new(
-            event_id,
-            max_len,
-            self.receiver_id_seq.clone(),
-            self.inner.clone(),
-            Some(timeout),
-        );
+        let receiver = EventReceiver::new(event_id, self.inner.clone());
 
-        let receiver_id = receiver.receiver_id;
         let event_id = receiver.event_id();
         let inner = self.inner.clone();
 
         T::interval(timeout, move || {
-            inner
-                .lock()
-                .unwrap()
-                .remove_pending_poll(receiver_id, event_id);
+            inner.lock().unwrap().remove_pending_poll(event_id);
         });
 
         receiver
@@ -85,39 +65,19 @@ where
     E: 'static,
 {
     /// Create a new event receiver with automatic generate event_id
-    pub fn wait_one(&mut self, max_len: usize) -> EventReceiver<E> {
-        EventReceiver::new(
-            self.event.next(),
-            max_len,
-            self.receiver_id_seq.clone(),
-            self.inner.clone(),
-            None,
-        )
+    pub fn wait_one(&mut self) -> EventReceiver<E> {
+        EventReceiver::new(self.event.next(), self.inner.clone())
     }
 
     /// [`wait_one`](CompleteQ::wait_one) operation with timeout
-    pub fn wait_one_timeout<T: Timer>(
-        &mut self,
-        max_len: usize,
-        timeout: Duration,
-    ) -> EventReceiver<E> {
-        let receiver = EventReceiver::new(
-            self.event.next(),
-            max_len,
-            self.receiver_id_seq.clone(),
-            self.inner.clone(),
-            Some(timeout),
-        );
+    pub fn wait_one_timeout<T: Timer>(&mut self, timeout: Duration) -> EventReceiver<E> {
+        let receiver = EventReceiver::new(self.event.next(), self.inner.clone());
 
-        let receiver_id = receiver.receiver_id;
         let event_id = receiver.event_id();
         let inner = self.inner.clone();
 
         T::interval(timeout, move || {
-            inner
-                .lock()
-                .unwrap()
-                .remove_pending_poll(receiver_id, event_id);
+            inner.lock().unwrap().remove_pending_poll(event_id);
         });
 
         receiver
@@ -141,12 +101,12 @@ mod tests {
 
         let mut q = CompleteQ::<Event>::new();
 
-        let receiver = q.wait_one(10);
+        let receiver = q.wait_one();
 
         let sender = receiver.sender();
 
         async_std::task::spawn(async move {
-            sender.send(Default::default()).await.completed()?;
+            sender.send(Default::default()).completed()?;
 
             Ok::<(), CompleteQError>(())
         });

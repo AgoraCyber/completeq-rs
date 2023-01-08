@@ -33,6 +33,7 @@ impl<E: UserEvent> EventReceiver<E> {
     ) -> Self {
         let id = receiver_id_seq.fetch_add(1, Ordering::SeqCst);
 
+        // Open a new channel or reset an existing channel configuration data.
         inner
             .lock()
             .unwrap()
