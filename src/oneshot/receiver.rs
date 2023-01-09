@@ -79,9 +79,24 @@ impl<E: UserEvent, T: Timer + Unpin> std::future::Future for EventReceiver<E, T>
             }
         }
 
-        self.inner
+        let poll = self
+            .inner
             .lock()
             .unwrap()
-            .poll_once(self.event_id.clone(), cx.waker().clone())
+            .poll_once(self.event_id.clone(), cx.waker().clone());
+
+        match poll {
+            Poll::Pending => Poll::Pending,
+            Poll::Ready(result) => {
+                // Remove pending poll operation .
+                self.inner
+                    .lock()
+                    .unwrap()
+                    .remove_pending_poll(self.event_id.clone());
+
+                // Return timeout error
+                return Poll::Ready(result);
+            }
+        }
     }
 }
