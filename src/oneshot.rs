@@ -113,6 +113,10 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
+    use async_timer::hashed::Timeout;
+
     use crate::{error::CompleteQError, user_event::RequestId};
 
     use super::CompleteQ;
@@ -139,6 +143,25 @@ mod tests {
         });
 
         receiver.await.success()?;
+
+        Ok(())
+    }
+
+    #[async_std::test]
+    async fn rec_timeout() -> anyhow::Result<()> {
+        _ = pretty_env_logger::try_init();
+
+        use std::time::SystemTime;
+
+        let mut q = CompleteQ::<Event>::new();
+
+        let now = SystemTime::now();
+
+        let receiver = q.wait_one_timeout::<Timeout>(Duration::from_secs(2));
+
+        assert!(receiver.await.is_timeout());
+
+        assert_eq!(now.elapsed()?.as_secs(), 2);
 
         Ok(())
     }
