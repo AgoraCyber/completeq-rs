@@ -3,12 +3,10 @@ use std::{
     time::Duration,
 };
 
-use crate::{
-    timer::Timer,
-    user_event::{AutoIncEvent, UserEvent},
-};
+use crate::user_event::{AutoIncEvent, UserEvent};
 
 mod inner;
+use async_timer::{Timer, TimerWithContext};
 use inner::*;
 mod receiver;
 pub use receiver::*;
@@ -40,7 +38,11 @@ where
     }
 
     /// Create a new event receiver with provide event_id
-    pub fn wait_for(&self, event_id: E::ID, max_len: usize) -> EventReceiver<E> {
+    pub fn wait_for(
+        &self,
+        event_id: E::ID,
+        max_len: usize,
+    ) -> EventReceiver<E, async_timer::hashed::Timeout> {
         EventReceiver::new(
             event_id,
             max_len,
@@ -51,30 +53,41 @@ where
     }
 
     /// [`wait_for`](CompleteQ::wait_for)  operation with timeout
-    pub fn wait_for_timeout<T: Timer>(
+    pub fn wait_for_timeout<T: TimerWithContext>(
         &self,
         event_id: E::ID,
         max_len: usize,
         timeout: Duration,
-    ) -> EventReceiver<E> {
+    ) -> EventReceiver<E, T> {
+        self.wait_for_with_timer(event_id, max_len, T::new(timeout))
+    }
+
+    pub fn wait_for_timeout_with_context<T: TimerWithContext, C>(
+        &self,
+        event_id: E::ID,
+        max_len: usize,
+        timeout: Duration,
+        context: C,
+    ) -> EventReceiver<E, T>
+    where
+        C: AsMut<T::Context>,
+    {
+        self.wait_for_with_timer(event_id, max_len, T::new_with_context(timeout, context))
+    }
+
+    pub fn wait_for_with_timer<T: Timer>(
+        &self,
+        event_id: E::ID,
+        max_len: usize,
+        timer: T,
+    ) -> EventReceiver<E, T> {
         let receiver = EventReceiver::new(
             event_id,
             max_len,
             self.receiver_id_seq.clone(),
             self.inner.clone(),
-            Some(timeout),
+            Some(timer),
         );
-
-        let receiver_id = receiver.receiver_id;
-        let event_id = receiver.event_id();
-        let inner = self.inner.clone();
-
-        T::interval(timeout, move || {
-            inner
-                .lock()
-                .unwrap()
-                .remove_pending_poll(receiver_id, event_id);
-        });
 
         receiver
     }
@@ -85,42 +98,43 @@ where
     E: 'static,
 {
     /// Create a new event receiver with automatic generate event_id
-    pub fn wait_one(&mut self, max_len: usize) -> EventReceiver<E> {
-        EventReceiver::new(
-            self.event.next(),
-            max_len,
-            self.receiver_id_seq.clone(),
-            self.inner.clone(),
-            None,
-        )
+    pub fn wait_one(&mut self, max_len: usize) -> EventReceiver<E, async_timer::hashed::Timeout> {
+        let event_id = self.event.next();
+        self.wait_for(event_id, max_len)
     }
 
-    /// [`wait_one`](CompleteQ::wait_one) operation with timeout
+    pub fn wait_one_with_timer<T: Timer>(
+        &mut self,
+        max_len: usize,
+        timer: T,
+    ) -> EventReceiver<E, T> {
+        let event_id = self.event.next();
+
+        self.wait_for_with_timer(event_id, max_len, timer)
+    }
+
     pub fn wait_one_timeout<T: Timer>(
         &mut self,
         max_len: usize,
-        timeout: Duration,
-    ) -> EventReceiver<E> {
-        let receiver = EventReceiver::new(
-            self.event.next(),
-            max_len,
-            self.receiver_id_seq.clone(),
-            self.inner.clone(),
-            Some(timeout),
-        );
+        duration: Duration,
+    ) -> EventReceiver<E, T> {
+        let event_id = self.event.next();
 
-        let receiver_id = receiver.receiver_id;
-        let event_id = receiver.event_id();
-        let inner = self.inner.clone();
+        self.wait_for_with_timer(event_id, max_len, T::new(duration))
+    }
 
-        T::interval(timeout, move || {
-            inner
-                .lock()
-                .unwrap()
-                .remove_pending_poll(receiver_id, event_id);
-        });
+    pub fn wait_one_timeout_with_context<T: TimerWithContext, C>(
+        &mut self,
+        max_len: usize,
+        duration: Duration,
+        context: C,
+    ) -> EventReceiver<E, T>
+    where
+        C: AsMut<T::Context>,
+    {
+        let event_id = self.event.next();
 
-        receiver
+        self.wait_for_with_timer(event_id, max_len, T::new_with_context(duration, context))
     }
 }
 

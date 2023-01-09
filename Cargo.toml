@@ -6,6 +6,8 @@ edition = "2021"
 [dependencies]
 thiserror = "1.0.38"
 log = "0.4.16"
+async-timer = {git="https://github.com/AgoraCyber/async-timer.git"}
+futures = {version = "0.3.25"}
 
 [dev-dependencies]
 dotenv = "0.15.0"

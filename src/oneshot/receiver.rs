@@ -1,7 +1,11 @@
 use std::{
+    cell::Cell,
     sync::{Arc, Mutex},
     task::Poll,
 };
+
+use async_timer::Timer;
+use futures::FutureExt;
 
 use crate::{result::ReceiveResult, user_event::UserEvent};
 
@@ -10,17 +14,26 @@ use super::{inner::CompleteQImpl, sender::EventSender};
 /// Event receiver endpoint.
 ///
 /// We can create an associated [`EventSender`] instance from this instance.
-pub struct EventReceiver<E: UserEvent> {
+pub struct EventReceiver<E: UserEvent, T: Timer> {
     event_id: E::ID,
     inner: Arc<Mutex<CompleteQImpl<E>>>,
+    timer: Cell<Option<T>>,
 }
 
-impl<E: UserEvent> EventReceiver<E> {
-    pub(crate) fn new(event_id: E::ID, inner: Arc<Mutex<CompleteQImpl<E>>>) -> Self {
+impl<E: UserEvent, T: Timer> EventReceiver<E, T> {
+    pub(crate) fn new(
+        event_id: E::ID,
+        inner: Arc<Mutex<CompleteQImpl<E>>>,
+        timer: Option<T>,
+    ) -> Self {
         // Open a new channel or reset an existing channel configuration data.
         _ = inner.lock().unwrap().open_channel(event_id.clone());
 
-        Self { event_id, inner }
+        Self {
+            event_id,
+            inner,
+            timer: Cell::new(timer),
+        }
     }
 
     /// Get receiver bound event_id
@@ -34,7 +47,7 @@ impl<E: UserEvent> EventReceiver<E> {
     }
 }
 
-impl<E: UserEvent> Drop for EventReceiver<E> {
+impl<E: UserEvent, T: Timer> Drop for EventReceiver<E, T> {
     fn drop(&mut self) {
         self.inner
             .lock()
@@ -43,9 +56,29 @@ impl<E: UserEvent> Drop for EventReceiver<E> {
     }
 }
 
-impl<E: UserEvent> std::future::Future for EventReceiver<E> {
+impl<E: UserEvent, T: Timer + Unpin> std::future::Future for EventReceiver<E, T> {
     type Output = ReceiveResult<E>;
     fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+        let timer = self.timer.take();
+
+        if let Some(mut timer) = timer {
+            match timer.poll_unpin(cx) {
+                Poll::Pending => {
+                    self.timer.set(Some(timer));
+                }
+                Poll::Ready(_) => {
+                    // Remove pending poll operation .
+                    self.inner
+                        .lock()
+                        .unwrap()
+                        .remove_pending_poll(self.event_id.clone());
+
+                    // Return timeout error
+                    return Poll::Ready(ReceiveResult::Timeout);
+                }
+            }
+        }
+
         self.inner
             .lock()
             .unwrap()

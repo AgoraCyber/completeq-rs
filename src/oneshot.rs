@@ -1,4 +1,5 @@
 mod inner;
+use async_timer::{Timer, TimerWithContext};
 use inner::*;
 mod receiver;
 pub use receiver::*;
@@ -10,10 +11,7 @@ use std::{
     time::Duration,
 };
 
-use crate::{
-    timer::Timer,
-    user_event::{AutoIncEvent, UserEvent},
-};
+use crate::user_event::{AutoIncEvent, UserEvent};
 
 /// CompleteQ structure is a central scheduler for certain types of completion events
 ///
@@ -37,26 +35,42 @@ where
     }
 
     /// Create a new event receiver with provide event_id
-    pub fn wait_for(&self, event_id: E::ID) -> EventReceiver<E> {
-        EventReceiver::new(event_id, self.inner.clone())
+    pub fn wait_for(&self, event_id: E::ID) -> EventReceiver<E, async_timer::hashed::Timeout> {
+        EventReceiver::new(event_id, self.inner.clone(), None)
     }
 
-    /// [`wait_for`](CompleteQ::wait_for)  operation with timeout
+    /// [`wait_for`](CompleteQ::wait_for) with timer to trigger waiting timeout
+    pub fn wait_for_with_timer<T: Timer>(&self, event_id: E::ID, timer: T) -> EventReceiver<E, T> {
+        let receiver = EventReceiver::new(event_id, self.inner.clone(), Some(timer));
+
+        receiver
+    }
+    /// This function takes a timeout interval and creates a timer object internally
+    ///
+    /// See [`wait_for_with_timer`](CompleteQ::wait_for_with_timer) for more information
     pub fn wait_for_timeout<T: Timer>(
         &self,
         event_id: E::ID,
-        timeout: Duration,
-    ) -> EventReceiver<E> {
-        let receiver = EventReceiver::new(event_id, self.inner.clone());
+        duration: Duration,
+    ) -> EventReceiver<E, T> {
+        EventReceiver::new(event_id, self.inner.clone(), Some(T::new(duration)))
+    }
 
-        let event_id = receiver.event_id();
-        let inner = self.inner.clone();
-
-        T::interval(timeout, move || {
-            inner.lock().unwrap().remove_pending_poll(event_id);
-        });
-
-        receiver
+    /// Compared to function [`wait_for_timeout`](CompleteQ::wait_for_timeout),
+    /// this function provides a [`C`](TimerWithContext::Context) configuration
+    /// parameter to timer creation
+    ///
+    /// See [`wait_for_with_timer`](CompleteQ::wait_for_with_timer) for more information
+    pub fn wait_for_timeout_with_context<T: TimerWithContext, C>(
+        &self,
+        event_id: E::ID,
+        duration: Duration,
+        context: C,
+    ) -> EventReceiver<E, T>
+    where
+        C: AsMut<T::Context>,
+    {
+        self.wait_for_with_timer(event_id, T::new_with_context(duration, context))
     }
 }
 
@@ -65,22 +79,35 @@ where
     E: 'static,
 {
     /// Create a new event receiver with automatic generate event_id
-    pub fn wait_one(&mut self) -> EventReceiver<E> {
-        EventReceiver::new(self.event.next(), self.inner.clone())
+    pub fn wait_one(&mut self) -> EventReceiver<E, async_timer::hashed::Timeout> {
+        let event_id = self.event.next();
+        self.wait_for(event_id)
     }
 
     /// [`wait_one`](CompleteQ::wait_one) operation with timeout
-    pub fn wait_one_timeout<T: Timer>(&mut self, timeout: Duration) -> EventReceiver<E> {
-        let receiver = EventReceiver::new(self.event.next(), self.inner.clone());
+    pub fn wait_one_timeout<T: Timer>(&mut self, timeout: Duration) -> EventReceiver<E, T> {
+        let event_id = self.event.next();
 
-        let event_id = receiver.event_id();
-        let inner = self.inner.clone();
+        self.wait_for_timeout(event_id, timeout)
+    }
 
-        T::interval(timeout, move || {
-            inner.lock().unwrap().remove_pending_poll(event_id);
-        });
+    pub fn wait_one_timeout_with_context<T: TimerWithContext, C>(
+        &mut self,
+        timeout: Duration,
+        context: C,
+    ) -> EventReceiver<E, T>
+    where
+        C: AsMut<T::Context>,
+    {
+        let event_id = self.event.next();
 
-        receiver
+        self.wait_for_timeout_with_context(event_id, timeout, context)
+    }
+
+    pub fn wait_one_with_timer<T: Timer>(&mut self, timer: T) -> EventReceiver<E, T> {
+        let event_id = self.event.next();
+
+        self.wait_for_with_timer(event_id, timer)
     }
 }
 

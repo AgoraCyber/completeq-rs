@@ -44,10 +44,10 @@ impl<E: UserEvent> Future for EventSend<E> {
     type Output = EmitResult;
 
     fn poll(
-        mut self: std::pin::Pin<&mut Self>,
+        self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Self::Output> {
-        let argument = self.as_mut().argument.take();
+        let argument = self.argument.take();
         let result = self.inner.lock().unwrap().complete_one(
             self.event_id.clone(),
             argument.unwrap(),
