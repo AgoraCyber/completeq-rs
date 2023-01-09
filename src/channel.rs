@@ -37,6 +37,10 @@ where
         }
     }
 
+    pub fn complete_one(&self, event_id: E::ID, event_arg: E::Argument) -> EventSend<E> {
+        EventSend::new(event_id, event_arg, self.inner.clone())
+    }
+
     /// Create a new event receiver with provide event_id
     pub fn wait_for(
         &self,

@@ -11,7 +11,10 @@ use std::{
     time::Duration,
 };
 
-use crate::user_event::{AutoIncEvent, UserEvent};
+use crate::{
+    result::EmitResult,
+    user_event::{AutoIncEvent, UserEvent},
+};
 
 /// CompleteQ structure is a central scheduler for certain types of completion events
 ///
@@ -30,8 +33,12 @@ where
     pub fn new() -> Self {
         Self {
             event: E::default(),
-            inner: Default::default(),
+            inner: Arc::new(Mutex::new(CompleteQImpl::new())),
         }
+    }
+
+    pub fn complete_one(&self, event_id: E::ID, event_arg: E::Argument) -> EmitResult {
+        EventSender::new(event_id, self.inner.clone()).send(event_arg)
     }
 
     /// Create a new event receiver with provide event_id

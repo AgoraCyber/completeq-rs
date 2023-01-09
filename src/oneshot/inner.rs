@@ -9,7 +9,6 @@ use crate::{
     user_event::UserEvent,
 };
 
-#[derive(Default)]
 struct Channel<Argument> {
     /// Pending receiver [`waker`](Waker), maybe [`None`]
     receiver: Option<Waker>,
@@ -17,13 +16,26 @@ struct Channel<Argument> {
     pending_msg: Option<Argument>,
 }
 
+impl<Argument> Default for Channel<Argument> {
+    fn default() -> Self {
+        Self {
+            receiver: None,
+            pending_msg: None,
+        }
+    }
+}
+
 /// CompleteQ inner implementation.
-#[derive(Default)]
 pub(crate) struct CompleteQImpl<E: UserEvent> {
     channels: HashMap<E::ID, Channel<E::Argument>>,
 }
 
 impl<E: UserEvent> CompleteQImpl<E> {
+    pub(crate) fn new() -> Self {
+        Self {
+            channels: HashMap::new(),
+        }
+    }
     /// Send one completed event
     ///
     /// If there are no surviving receiver, will return [`Closed`](super::emit::EmitInnerResult::Closed)

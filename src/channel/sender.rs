@@ -40,6 +40,20 @@ pub struct EventSend<E: UserEvent> {
     inner: Arc<Mutex<CompleteQImpl<E>>>,
 }
 
+impl<E: UserEvent> EventSend<E> {
+    pub(crate) fn new(
+        event_id: E::ID,
+        event_arg: E::Argument,
+        inner: Arc<Mutex<CompleteQImpl<E>>>,
+    ) -> Self {
+        Self {
+            argument: Cell::new(Some(event_arg)),
+            event_id: event_id,
+            inner: inner,
+        }
+    }
+}
+
 impl<E: UserEvent> Future for EventSend<E> {
     type Output = EmitResult;
 

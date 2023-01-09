@@ -12,9 +12,9 @@ use std::{
 pub trait UserEvent: Default {
     /// Event id
     /// [`crate::channel::CompleteQ`] use this id to track event message.
-    type ID: ?Sized + Hash + Eq + Send + Sync + Clone + Default + 'static + Display;
+    type ID: ?Sized + Hash + Eq + Send + Sync + Clone + 'static + Display;
     /// Event message payload structure.
-    type Argument: Sized + Send + Default + 'static;
+    type Argument: Sized + Send + 'static;
 }
 
 /// Generally if user-defined event system do not care about event id's semantics,
@@ -24,18 +24,19 @@ pub trait AutoIncEvent: UserEvent {
     fn next(&mut self) -> Self::ID;
 }
 
+#[derive(Clone)]
 /// user-defined event for `RPC` like system.
 pub struct RequestId<Argument>(Arc<AtomicUsize>, PhantomData<Argument>);
 
 impl<Argument> Default for RequestId<Argument> {
     fn default() -> Self {
-        Self(Arc::new(AtomicUsize::new(1)), Default::default())
+        Self(Arc::new(AtomicUsize::new(1)), PhantomData)
     }
 }
 
 impl<Argument> UserEvent for RequestId<Argument>
 where
-    Argument: Sized + Send + Default + 'static,
+    Argument: Sized + Send + 'static,
 {
     type ID = usize;
     type Argument = Argument;
@@ -43,7 +44,7 @@ where
 
 impl<Argument> AutoIncEvent for RequestId<Argument>
 where
-    Argument: Sized + Send + Default + 'static,
+    Argument: Sized + Send + 'static,
 {
     fn next(&mut self) -> Self::ID {
         self.0.fetch_add(1, Ordering::SeqCst)

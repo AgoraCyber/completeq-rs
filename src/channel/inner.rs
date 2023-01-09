@@ -8,7 +8,6 @@ use crate::{
     user_event::UserEvent,
 };
 
-#[derive(Default)]
 struct Channel<Argument> {
     /// Channel bound receiver counter.
     ///
@@ -26,10 +25,29 @@ struct Channel<Argument> {
     senders: Vec<Waker>,
 }
 
+impl<Argument> Default for Channel<Argument> {
+    fn default() -> Self {
+        Self {
+            ref_count: 0,
+            max_len: 10,
+            receivers: HashMap::new(),
+            pending_msgs: vec![],
+            senders: vec![],
+        }
+    }
+}
+
 /// CompleteQ inner implementation.
-#[derive(Default)]
 pub(crate) struct CompleteQImpl<E: UserEvent> {
     channels: HashMap<E::ID, Channel<E::Argument>>,
+}
+
+impl<E: UserEvent> Default for CompleteQImpl<E> {
+    fn default() -> Self {
+        Self {
+            channels: HashMap::new(),
+        }
+    }
 }
 
 impl<E: UserEvent> CompleteQImpl<E> {
