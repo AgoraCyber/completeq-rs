@@ -37,6 +37,10 @@ where
         }
     }
 
+    pub fn cancel_all(&self) {
+        self.inner.lock().unwrap().cancel_all();
+    }
+
     pub fn complete_one(&self, event_id: E::ID, event_arg: E::Argument) -> EventSend<E> {
         EventSend::new(event_id, event_arg, self.inner.clone())
     }
@@ -144,14 +148,14 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{error::CompleteQError, user_event::RequestId};
+    use crate::{error::CompleteQError, user_event::RPCResponser};
 
     use super::CompleteQ;
 
     #[derive(Default)]
     struct NullArgument;
 
-    type Event = RequestId<NullArgument>;
+    type Event = RPCResponser<NullArgument>;
 
     #[async_std::test]
     async fn one_send_one_recv() -> anyhow::Result<()> {

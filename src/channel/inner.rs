@@ -169,4 +169,14 @@ impl<E: UserEvent> CompleteQImpl<E> {
             }
         }
     }
+
+    pub fn cancel_all(&mut self) {
+        for channel in self.channels.values_mut() {
+            for waker in channel.receivers.values() {
+                waker.wake_by_ref();
+            }
+        }
+
+        self.channels.clear();
+    }
 }

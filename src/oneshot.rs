@@ -41,6 +41,10 @@ where
         EventSender::new(event_id, self.inner.clone()).send(event_arg)
     }
 
+    pub fn cancel_all(&self) {
+        self.inner.lock().unwrap().cancel_all();
+    }
+
     /// Create a new event receiver with provide event_id
     pub fn wait_for(&self, event_id: E::ID) -> EventReceiver<E, async_timer::hashed::Timeout> {
         EventReceiver::new(event_id, self.inner.clone(), None)
@@ -124,14 +128,14 @@ mod tests {
 
     use async_timer::hashed::Timeout;
 
-    use crate::{error::CompleteQError, user_event::RequestId};
+    use crate::{error::CompleteQError, user_event::RPCResponser};
 
     use super::CompleteQ;
 
     #[derive(Default)]
     struct NullArgument;
 
-    type Event = RequestId<NullArgument>;
+    type Event = RPCResponser<NullArgument>;
 
     #[async_std::test]
     async fn one_send_one_recv() -> anyhow::Result<()> {

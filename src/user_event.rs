@@ -26,15 +26,15 @@ pub trait AutoIncEvent: UserEvent {
 
 #[derive(Clone)]
 /// user-defined event for `RPC` like system.
-pub struct RequestId<Argument>(Arc<AtomicUsize>, PhantomData<Argument>);
+pub struct RPCResponser<Argument>(Arc<AtomicUsize>, PhantomData<Argument>);
 
-impl<Argument> Default for RequestId<Argument> {
+impl<Argument> Default for RPCResponser<Argument> {
     fn default() -> Self {
         Self(Arc::new(AtomicUsize::new(1)), PhantomData)
     }
 }
 
-impl<Argument> UserEvent for RequestId<Argument>
+impl<Argument> UserEvent for RPCResponser<Argument>
 where
     Argument: Sized + Send + 'static,
 {
@@ -42,7 +42,7 @@ where
     type Argument = Argument;
 }
 
-impl<Argument> AutoIncEvent for RequestId<Argument>
+impl<Argument> AutoIncEvent for RPCResponser<Argument>
 where
     Argument: Sized + Send + 'static,
 {

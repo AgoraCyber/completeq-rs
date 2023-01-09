@@ -97,4 +97,14 @@ impl<E: UserEvent> CompleteQImpl<E> {
             waker.wake_by_ref();
         }
     }
+
+    pub fn cancel_all(&mut self) {
+        for channel in self.channels.values_mut() {
+            if let Some(waker) = &channel.receiver {
+                waker.wake_by_ref();
+            }
+        }
+
+        self.channels.clear();
+    }
 }
