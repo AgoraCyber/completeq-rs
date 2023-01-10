@@ -1,5 +1,5 @@
 mod inner;
-use async_timer::{Timer, TimerWithContext};
+use async_timer_rs::{Timer, TimerWithContext};
 use inner::*;
 mod receiver;
 pub use receiver::*;
@@ -46,7 +46,7 @@ where
     }
 
     /// Create a new event receiver with provide event_id
-    pub fn wait_for(&self, event_id: E::ID) -> EventReceiver<E, async_timer::hashed::Timeout> {
+    pub fn wait_for(&self, event_id: E::ID) -> EventReceiver<E, async_timer_rs::hashed::Timeout> {
         EventReceiver::new(event_id, self.inner.clone(), None)
     }
 
@@ -90,7 +90,7 @@ where
     E: 'static,
 {
     /// Create a new event receiver with automatic generate event_id
-    pub fn wait_one(&mut self) -> EventReceiver<E, async_timer::hashed::Timeout> {
+    pub fn wait_one(&mut self) -> EventReceiver<E, async_timer_rs::hashed::Timeout> {
         let event_id = self.event.next();
         self.wait_for(event_id)
     }
@@ -126,7 +126,7 @@ where
 mod tests {
     use std::time::Duration;
 
-    use async_timer::hashed::Timeout;
+    use async_timer_rs::hashed::Timeout;
 
     use crate::{error::CompleteQError, user_event::RPCResponser};
 

@@ -6,7 +6,7 @@ use std::{
 use crate::user_event::{AutoIncEvent, UserEvent};
 
 mod inner;
-use async_timer::{Timer, TimerWithContext};
+use async_timer_rs::{Timer, TimerWithContext};
 use inner::*;
 mod receiver;
 pub use receiver::*;
@@ -50,7 +50,7 @@ where
         &self,
         event_id: E::ID,
         max_len: usize,
-    ) -> EventReceiver<E, async_timer::hashed::Timeout> {
+    ) -> EventReceiver<E, async_timer_rs::hashed::Timeout> {
         EventReceiver::new(
             event_id,
             max_len,
@@ -106,7 +106,7 @@ where
     E: 'static,
 {
     /// Create a new event receiver with automatic generate event_id
-    pub fn wait_one(&mut self, max_len: usize) -> EventReceiver<E, async_timer::hashed::Timeout> {
+    pub fn wait_one(&mut self, max_len: usize) -> EventReceiver<E, async_timer_rs::hashed::Timeout> {
         let event_id = self.event.next();
         self.wait_for(event_id, max_len)
     }

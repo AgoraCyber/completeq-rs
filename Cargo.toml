@@ -2,11 +2,18 @@
 name = "completeq-rs"
 version = "0.1.0"
 edition = "2021"
+license-file = "LICENSE"
+keywords = ["futures-rs", "async","timeout","completeq"]
+description = "An alternative to passing messages between asynchronous tasks"
+documentation = "https://docs.rs/completeq-rs"
+readme = "README.md"
+homepage = "https://github.com/AgoraCyber/completeq-rs"
+repository = "https://github.com/AgoraCyber/completeq-rs"
 
 [dependencies]
 thiserror = "1.0.38"
 log = "0.4.16"
-async-timer-rs = {git="https://github.com/AgoraCyber/async-timer.git"}
+async-timer-rs = "^0.1"
 futures = {version = "0.3.25"}
 
 [dev-dependencies]

@@ -7,7 +7,7 @@ use std::{
     task::Poll,
 };
 
-use async_timer::Timer;
+use async_timer_rs::Timer;
 use futures::FutureExt;
 
 use crate::{result::ReceiveResult, user_event::UserEvent};
