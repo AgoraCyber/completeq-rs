@@ -106,7 +106,10 @@ where
     E: 'static,
 {
     /// Create a new event receiver with automatic generate event_id
-    pub fn wait_one(&mut self, max_len: usize) -> EventReceiver<E, async_timer_rs::hashed::Timeout> {
+    pub fn wait_one(
+        &mut self,
+        max_len: usize,
+    ) -> EventReceiver<E, async_timer_rs::hashed::Timeout> {
         let event_id = self.event.next();
         self.wait_for(event_id, max_len)
     }

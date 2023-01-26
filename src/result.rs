@@ -32,7 +32,7 @@ impl EmitResult {
 /// Receiver poll return value.
 pub enum ReceiveResult<E: UserEvent> {
     /// Success received one event message
-    Success(E::Argument),
+    Success(Option<E::Argument>),
     /// Receive event message timeout
     Timeout,
 }
@@ -43,8 +43,16 @@ impl<E: UserEvent> ReceiveResult<E> {
     /// If timeout this method will return [`Err(CompleteQError::Timeout)`]
     pub fn success(self) -> Result<E::Argument, CompleteQError> {
         match self {
-            Self::Success(argument) => Ok(argument),
+            Self::Success(Some(argument)) => Ok(argument),
             Self::Timeout => Err(CompleteQError::Timeout),
+            _ => Err(CompleteQError::PipeBroken),
+        }
+    }
+
+    pub fn ok(self) -> Option<E::Argument> {
+        match self {
+            Self::Success(argument) => argument,
+            _ => None,
         }
     }
 

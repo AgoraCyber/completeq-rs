@@ -60,16 +60,17 @@ impl<E: UserEvent> CompleteQImpl<E> {
     /// If the channel's waiting queue length is zero,
     /// this method will return [`Pending`](Poll::Pending) and cache [`waker`](Waker) parameter.
     pub fn poll_once(&mut self, event_id: E::ID, waker: Waker) -> Poll<ReceiveResult<E>> {
-        let channel = self
-            .channels
-            .get_mut(&event_id)
-            .expect("Call open_channel first");
+        let channel = self.channels.get_mut(&event_id);
 
-        if let Some(argument) = channel.pending_msg.take() {
-            return Poll::Ready(ReceiveResult::Success(argument));
+        if let Some(channel) = channel {
+            if let Some(argument) = channel.pending_msg.take() {
+                return Poll::Ready(ReceiveResult::Success(Some(argument)));
+            } else {
+                channel.receiver = Some(waker);
+                return Poll::Pending;
+            }
         } else {
-            channel.receiver = Some(waker);
-            return Poll::Pending;
+            return Poll::Ready(ReceiveResult::Success(None));
         }
     }
 

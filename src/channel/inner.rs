@@ -99,23 +99,24 @@ impl<E: UserEvent> CompleteQImpl<E> {
             event_id
         );
 
-        let channel = self
-            .channels
-            .get_mut(&event_id)
-            .expect("Call open_channel first");
+        let channel = self.channels.get_mut(&event_id);
 
-        if !channel.pending_msgs.is_empty() {
-            let argument = channel.pending_msgs.swap_remove(0);
+        if let Some(channel) = channel {
+            if !channel.pending_msgs.is_empty() {
+                let argument = channel.pending_msgs.swap_remove(0);
 
-            // wakeup one pending sender
-            if !channel.senders.is_empty() {
-                channel.senders.swap_remove(0).wake_by_ref();
+                // wakeup one pending sender
+                if !channel.senders.is_empty() {
+                    channel.senders.swap_remove(0).wake_by_ref();
+                }
+
+                return Poll::Ready(ReceiveResult::Success(Some(argument)));
+            } else {
+                channel.receivers.insert(receiver_id, waker);
+                return Poll::Pending;
             }
-
-            return Poll::Ready(ReceiveResult::Success(argument));
         } else {
-            channel.receivers.insert(receiver_id, waker);
-            return Poll::Pending;
+            return Poll::Ready(ReceiveResult::Success(None));
         }
     }
 
@@ -147,14 +148,14 @@ impl<E: UserEvent> CompleteQImpl<E> {
     /// Reduce channel ref_count, if necessary remove channel from memory.
     pub fn close_channel(&mut self, event_id: E::ID) -> usize {
         if let Some(channel) = self.channels.get_mut(&event_id) {
-            channel.max_len -= 1;
+            channel.ref_count -= 1;
 
-            if channel.max_len == 0 {
+            if channel.ref_count == 0 {
                 self.channels.remove(&event_id);
 
                 return 0;
             } else {
-                return channel.max_len;
+                return channel.ref_count;
             }
         }
 
