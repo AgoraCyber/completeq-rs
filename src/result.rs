@@ -41,18 +41,10 @@ impl<E: UserEvent> ReceiveResult<E> {
     /// Convert `ReceiveResult` structure into [`Result<(),CompleteQError>`]
     ///
     /// If timeout this method will return [`Err(CompleteQError::Timeout)`]
-    pub fn success(self) -> Result<E::Argument, CompleteQError> {
+    pub fn success(self) -> Result<Option<E::Argument>, CompleteQError> {
         match self {
-            Self::Success(Some(argument)) => Ok(argument),
+            Self::Success(argument) => Ok(argument),
             Self::Timeout => Err(CompleteQError::Timeout),
-            _ => Err(CompleteQError::PipeBroken),
-        }
-    }
-
-    pub fn ok(self) -> Option<E::Argument> {
-        match self {
-            Self::Success(argument) => argument,
-            _ => None,
         }
     }
 

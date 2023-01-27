@@ -68,12 +68,13 @@ impl<E: UserEvent> CompleteQImpl<E> {
                 return EmitInnerResult::Pending(event_arg);
             }
 
-            log::trace!("complete_one event_id({}) -- ready", event_id);
             channel.pending_msgs.push(event_arg);
 
             if let Some(key) = channel.receivers.keys().next().map(|k| *k) {
                 channel.receivers.remove(&key).unwrap().wake_by_ref();
             }
+
+            log::trace!("complete_one event_id({}) -- ready", event_id);
 
             return EmitInnerResult::Completed;
         }
@@ -110,12 +111,23 @@ impl<E: UserEvent> CompleteQImpl<E> {
                     channel.senders.swap_remove(0).wake_by_ref();
                 }
 
+                log::trace!(
+                    "poll_one success fetch one event, receiver_id({}) event_id({}) ",
+                    receiver_id,
+                    event_id
+                );
+
                 return Poll::Ready(ReceiveResult::Success(Some(argument)));
             } else {
                 channel.receivers.insert(receiver_id, waker);
                 return Poll::Pending;
             }
         } else {
+            log::trace!(
+                "poll_one on broken channel, receiver_id({}) event_id({})",
+                receiver_id,
+                event_id
+            );
             return Poll::Ready(ReceiveResult::Success(None));
         }
     }
@@ -130,6 +142,8 @@ impl<E: UserEvent> CompleteQImpl<E> {
     ///             So the final length of this bound channel is determined by the last opened receiver
     ///
     pub fn open_channel(&mut self, event_id: E::ID, max_len: usize) -> usize {
+        log::trace!("open channel event_id({})", event_id);
+
         self.channels
             .entry(event_id)
             .and_modify(|c| {
@@ -147,6 +161,7 @@ impl<E: UserEvent> CompleteQImpl<E> {
 
     /// Reduce channel ref_count, if necessary remove channel from memory.
     pub fn close_channel(&mut self, event_id: E::ID) -> usize {
+        log::trace!("close channel event_id({})", event_id);
         if let Some(channel) = self.channels.get_mut(&event_id) {
             channel.ref_count -= 1;
 
