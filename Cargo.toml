@@ -1,9 +1,9 @@
 [package]
 name = "completeq-rs"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 license-file = "LICENSE"
-keywords = ["futures-rs", "async","timeout","completeq"]
+keywords = ["futures-rs", "async", "timeout", "completeq"]
 description = "An alternative to passing messages between asynchronous tasks"
 documentation = "https://docs.rs/completeq-rs"
 readme = "README.md"
@@ -14,10 +14,10 @@ repository = "https://github.com/AgoraCyber/completeq-rs"
 thiserror = "1.0.38"
 log = "0.4.16"
 async-timer-rs = "^0.1"
-futures = {version = "0.3.25"}
+futures = { version = "0.3.25" }
 
 [dev-dependencies]
 dotenv = "0.15.0"
 pretty_env_logger = "0.4.0"
-async-std = {version = "1.11.0", features = ["attributes", "default"]}
+async-std = { version = "1.11.0", features = ["attributes", "default"] }
 anyhow = "1.0.68"
